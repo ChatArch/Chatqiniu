@@ -1,0 +1,9 @@
+site_name: Chatqiniu 文档
+site_url: https://ChatArch.github.io/Chatqiniu
+repo_url: https://github.com/ChatArch/Chatqiniu
+theme:
+  name: material
+  language: zh
+nav:
+  - 首页: index.md
+  - English: index.en.md
