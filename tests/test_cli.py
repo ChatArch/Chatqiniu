@@ -1,1 +1,10 @@
-"""Root-level pytest placeholder; concrete tests live under tests/cli-tests and tests/code-tests."""
+from click.testing import CliRunner
+
+from chatqiniu.cli import main
+
+
+def test_hello_command_accepts_explicit_name():
+    result = CliRunner().invoke(main, ["hello", "ChatArch"])
+
+    assert result.exit_code == 0
+    assert "Hello, ChatArch!" in result.output
