@@ -17,32 +17,64 @@
 
 # Chatqiniu
 
-Chatqiniu: ChatArch Python package for Qiniu workflows
+Chatqiniu is a ChatArch CLI for Qiniu Cloud workflows, covering Kodo object storage, CDN, SSL certificates, and domain HTTPS operations behind one command surface.
 
 ## Quick Start
 
 ```bash
 pip install -e ".[dev]"
-chatqiniu hello ChatArch
+chatqiniu auth whoami
+chatqiniu bucket list
 python -m pytest -q
-python -m build
 ```
 
-## CLI Contract
+## What It Covers
 
-This template depends on `chatstyle>=0.1.0` and `chatenv>=0.1.1`. New commands should prefer:
+- `auth`: manage Qiniu credentials through ChatEnv and validate them with read-only calls
+- `profile` / `config`: manage named profiles, default bucket, public URL prefix, and CDN domain
+- `bucket` / `object` / `url`: inspect buckets, upload files, list objects, inspect metadata, and generate public/private URLs
+- `cdn` / `cert` / `domain`: CDN refresh/prefetch, certificate list/upload, and domain HTTPS configuration
+- `doctor` / `docs`: local diagnostics, official doc links, and command examples
 
-- `CommandSchema` / `CommandField` for inputs.
-- `add_interactive_option()` for the shared `-i/-I` switch.
-- `resolve_command_inputs()` for missing args, defaults, TTY behavior, and validation.
+## Common Commands
+
+```bash
+chatqiniu auth login
+chatqiniu auth whoami
+chatqiniu config set bucket my-bucket
+chatqiniu config set url-prefix https://cdn.example.com
+chatqiniu object list --prefix assets/
+chatqiniu cert list
+chatqiniu domain show cdn.example.com
+```
+
+## Runtime Contract
+
+`Chatqiniu` follows the current ChatArch rules:
+
+- configuration and secrets go through `chatenv>=0.1.1`
+- CLI prompting and input resolution go through `chatstyle>=0.1.0`
+- sensitive values must stay masked in logs, reports, and test snapshots
+
+The default Qiniu typed env path is:
+
+```text
+~/.chatarch/envs/Qiniu/.env
+```
+
+## Safety Notes
+
+- delete, certificate delete, domain HTTPS switching, and CDN refresh/prefetch are designed to prefer dry-run-style usage
+- high-impact writes should require explicit confirmation
+- day-to-day usage should favor read-only inspection and dry-run previews first
 
 ## Layout
 
 - `src/`: package source code
-- `tests/code-tests/`: code tests and migrated historical tests
-- `tests/cli-tests/`: real CLI tests, doc-first
-- `tests/mock-cli-tests/`: mock/fake CLI tests, doc-first
-- `docs/`: long-lived project docs built by mkdocs
+- `tests/code-tests/`: code tests
+- `tests/cli-tests/`: real CLI tests
+- `tests/mock-cli-tests/`: mock/fake CLI tests
+- `docs/`: long-lived docs built by mkdocs
 
 ## Development Notes
 

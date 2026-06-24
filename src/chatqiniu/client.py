@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import quote, urlencode, urlparse
 
 import requests
+from qiniu import Auth
 
 from .config import QiniuSettings
 
@@ -57,6 +58,7 @@ class QiniuClient:
         settings.require_credentials()
         self.settings = settings
         self.timeout = timeout
+        self.auth = Auth(settings.access_key, settings.secret_key)
 
     @property
     def access_key(self) -> str:
@@ -121,11 +123,7 @@ class QiniuClient:
         return self._request_dict("POST", "https://rs.qiniuapi.com/batch", body=body)
 
     def upload_token(self, *, bucket: str, key: str | None = None, expires: int = 3600) -> str:
-        scope = f"{bucket}:{key}" if key else bucket
-        policy = {"scope": scope, "deadline": int(time.time()) + expires}
-        encoded_policy = urlsafe_base64(json.dumps(policy, separators=(",", ":")))
-        sign = self._sign(encoded_policy.encode("ascii"))
-        return f"{self.access_key}:{sign}:{encoded_policy}"
+        return self.auth.upload_token(bucket, key=key, expires=expires)
 
     def object_upload(
         self,
@@ -167,10 +165,7 @@ class QiniuClient:
 
     def private_url(self, *, key: str, url_prefix: str, expires: int = 3600) -> str:
         base = self.public_url(key=key, url_prefix=url_prefix)
-        deadline = int(time.time()) + expires
-        url = f"{base}?e={deadline}"
-        token = f"{self.access_key}:{self._sign(url.encode('utf-8'))}"
-        return f"{url}&token={token}"
+        return self.auth.private_download_url(base, expires=expires)
 
     def _request(
         self,
@@ -180,7 +175,7 @@ class QiniuClient:
         params: dict[str, Any] | None = None,
         body: bytes | None = None,
         json_body: dict[str, Any] | None = None,
-        auth_scheme: str = "qiniu",
+        auth_scheme: str = "qbox",
     ) -> ApiPayload:
         request_body = body
         headers: dict[str, str] = {}
@@ -248,23 +243,14 @@ class QiniuClient:
         query = parsed.query
         if params:
             query = urlencode(params)
-        path_query = parsed.path or "/"
+        signing_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path or '/'}"
         if query:
-            path_query += f"?{query}"
-        if scheme.lower() == "qbox":
-            data = path_query.encode("utf-8") + b"\n" + body
-            return {"Authorization": f"QBox {self.access_key}:{self._sign(data)}"}
-        qiniu_date = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-        signing_text = (
-            f"{method.upper()} {path_query}\n"
-            f"Host: {parsed.netloc}\n"
-            f"Content-Type: {content_type}\n"
-            f"X-Qiniu-Date: {qiniu_date}\n\n"
-        ).encode("utf-8") + body
-        return {
-            "Authorization": f"Qiniu {self.access_key}:{self._sign(signing_text)}",
-            "X-Qiniu-Date": qiniu_date,
-        }
+            signing_url += f"?{query}"
+        if scheme.lower() == "qiniu":
+            token = self.auth.token_of_request(signing_url, body if body else None, content_type)
+            return {"Authorization": f"Qiniu {token}"}
+        token = self.auth.token_of_request(signing_url, body if body else None, content_type)
+        return {"Authorization": f"QBox {token}"}
 
     def _sign(self, data: bytes) -> str:
         return urlsafe_base64(hmac.new(self.secret_key.encode("utf-8"), data, hashlib.sha1).digest())
