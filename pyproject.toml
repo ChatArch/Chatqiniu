@@ -9,7 +9,7 @@ description = "Chatqiniu: ChatArch Python package for Qiniu workflows"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-dependencies = ["click>=8.0", "chatstyle>=0.1.0", "chatenv>=0.1.1"]
+dependencies = ["click>=8.0", "chatstyle>=0.1.0", "chatenv>=0.1.1", "requests>=2.31.0", "qiniu>=7.17.0"]
 authors = [{name = "ChatArch", email = "1073853456@qq.com"}]
 keywords = ["chatqiniu", "chatarch", "cli"]
 classifiers = [
@@ -25,6 +25,9 @@ Documentation = "https://ChatArch.github.io/Chatqiniu"
 [project.scripts]
 chatqiniu = "chatqiniu.cli:main"
 
+[project.entry-points."chatenv.configs"]
+qiniu = "chatqiniu.config"
+
 [project.optional-dependencies]
 dev = ["build", "pytest", "twine"]
 docs = ["mkdocs>=1.4.0", "mkdocs-material>=9.0.0", "mike>=2.0.0"]
@@ -37,3 +40,8 @@ where = ["src"]
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.pytest.ini_options]
+markers = [
+    "live: real read-only Qiniu API smoke tests gated by CHATQINIU_RUN_LIVE_TESTS=1",
+]
