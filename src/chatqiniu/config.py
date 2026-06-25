@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import click
 from chatenv import BaseEnvConfig, EnvField, EnvStore, get_paths
 
 
@@ -49,18 +50,18 @@ class QiniuSettings:
 
     def require_credentials(self) -> None:
         if not self.has_credentials:
-            raise ValueError("Qiniu credentials are missing. Run `chatqiniu auth login` first.")
+            raise click.ClickException("Qiniu credentials are missing. Run `chatqiniu auth login` first.")
 
     def require_bucket(self, bucket: str | None = None) -> str:
         selected = bucket or self.bucket_name
         if not selected:
-            raise ValueError("Qiniu bucket is missing. Pass --bucket or set QINIU_BUCKET_NAME.")
+            raise click.ClickException("Qiniu bucket is missing. Pass --bucket or set QINIU_BUCKET_NAME.")
         return selected
 
     def require_url_prefix(self, url_prefix: str | None = None) -> str:
         selected = url_prefix or self.url_prefix
         if not selected:
-            raise ValueError("Qiniu url prefix is missing. Pass --url-prefix or set QINIU_URL_PREFIX.")
+            raise click.ClickException("Qiniu url prefix is missing. Pass --url-prefix or set QINIU_URL_PREFIX.")
         return selected.rstrip("/")
 
 

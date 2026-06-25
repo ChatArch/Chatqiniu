@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import quote, urlencode, urlparse
 
 import requests
+import click
 from qiniu import Auth
 
 from .config import QiniuSettings
@@ -21,7 +22,7 @@ from .config import QiniuSettings
 ApiPayload = dict[str, Any] | list[Any]
 
 
-class QiniuApiError(RuntimeError):
+class QiniuApiError(click.ClickException):
     """Raised when a Qiniu API request fails."""
 
     def __init__(self, message: str, *, status_code: int | None = None, payload: Any = None):
