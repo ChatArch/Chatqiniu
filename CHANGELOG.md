@@ -1,6 +1,6 @@
 # Changelog
 
-## 未发布
+## 0.2.1 - 2026-08-05
 
 ### Added
 
@@ -13,6 +13,7 @@
 
 - 将文档 URL 对齐到 ChatArch 标准公共域名路径 `https://arch.gh.wzhecnu.cn/Chatqiniu/`。
 - 为 ChatArch 内部依赖和 MkDocs 文档依赖增加上界。
+- 将发布 workflow 收紧为 tag-only，并与 PyPI Trusted Publisher `(Any)` 环境匹配。
 
 ## 0.2.0 - 2026-06-24
 

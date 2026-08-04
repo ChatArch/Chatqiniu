@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,7 +11,6 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: pypi
     permissions:
       contents: read
       id-token: write
@@ -46,7 +44,6 @@ jobs:
               print(f"tag=v{version}", file=output)
           PY
       - name: Check tag matches package version
-        if: github.event_name == 'push'
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
