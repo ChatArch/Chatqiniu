@@ -1,81 +1,60 @@
-<div align="center">
-    <a href="https://pypi.python.org/pypi/Chatqiniu">
-        <img src="https://img.shields.io/pypi/v/Chatqiniu.svg" alt="PyPI version" />
-    </a>
-    <a href="https://github.com/ChatArch/Chatqiniu/actions/workflows/ci.yml">
-        <img src="https://github.com/ChatArch/Chatqiniu/actions/workflows/ci.yml/badge.svg" alt="Tests" />
-    </a>
-    <a href="https://ChatArch.github.io/Chatqiniu">
-        <img src="https://img.shields.io/badge/docs-mkdocs-blue.svg" alt="Documentation" />
-    </a>
-</div>
-
-<div align="center">
-
-[English](README.en.md) | [简体中文](README.md)
-</div>
-
 # Chatqiniu
 
-Chatqiniu is a ChatArch CLI for Qiniu Cloud workflows, covering Kodo object storage, CDN, SSL certificates, and domain HTTPS operations behind one command surface.
+Chatqiniu is the ChatArch command-line tool for Qiniu Cloud workflows, covering ChatEnv-backed credentials, Kodo object storage, CDN operations, SSL certificates, and CDN domain HTTPS configuration.
+
+- Documentation: https://arch.gh.wzhecnu.cn/Chatqiniu/
+- Source repository: https://github.com/ChatArch/Chatqiniu
+- Chinese README: [README.md](README.md)
 
 ## Quick Start
 
 ```bash
-pip install -e ".[dev]"
-chatqiniu auth whoami
-chatqiniu bucket list
+pip install -e ".[dev,docs]"
+chatqiniu --version
+chatqiniu auth whoami --profile wzh
+chatqiniu bucket list --profile wzh
 python -m pytest -q
 ```
 
-## What It Covers
+## Current Capabilities
 
-- `auth`: manage Qiniu credentials through ChatEnv and validate them with read-only calls
-- `profile` / `config`: manage named profiles, default bucket, public URL prefix, and CDN domain
-- `bucket` / `object` / `url`: inspect buckets, upload files, list objects, inspect metadata, and generate public/private URLs
-- `cdn` / `cert` / `domain`: CDN refresh/prefetch, certificate list/upload, and domain HTTPS configuration
-- `doctor` / `docs`: local diagnostics, official doc links, and command examples
+| Scenario | Command entry | Notes |
+| --- | --- | --- |
+| Authentication and profiles | `auth`, `profile`, `config` | Read and write Qiniu credentials and default bucket / CDN domain settings through ChatEnv. |
+| Kodo object storage | `bucket`, `object`, `url` | Inspect buckets, list objects, upload/download files, and generate public or private URLs. |
+| CDN operations | `cdn` | Refresh, prefetch, and query CDN tasks. |
+| Certificates and HTTPS | `cert`, `domain https` | List/upload certificates and bind certificates to CDN domains. High-impact writes default to dry-run. |
+| Diagnostics and docs | `doctor`, `docs` | Check local configuration, run read-only API health checks, and print curated official links. |
 
-## Common Commands
+## Certificate Deployment
+
+`cert deploy` uploads a local PEM certificate to Qiniu and binds the returned certificate ID to one or more CDN domains. It previews by default; real writes require both `--execute` and `--yes`.
 
 ```bash
-chatqiniu auth login
-chatqiniu auth whoami
-chatqiniu config set bucket my-bucket
-chatqiniu config set url-prefix https://cdn.example.com
-chatqiniu object list --prefix assets/
-chatqiniu cert list
-chatqiniu domain show cdn.example.com
+chatqiniu cert deploy \
+  --profile wzh \
+  --name chatdns-wzhecnu-default-20261028 \
+  --cert-chain ~/.chatarch/certs/wzhecnu.cn/default/fullchain.pem \
+  --private-key ~/.chatarch/certs/wzhecnu.cn/default/privkey.pem \
+  --domain qiniu.wzhecnu.cn \
+  --domain qiniu-cdn.wzhecnu.cn \
+  --force-https \
+  --execute --yes
 ```
 
-## Runtime Contract
+Safety contract: command output does not print certificate bodies, private keys, AccessKeys, or SecretKeys.
 
-`Chatqiniu` follows the current ChatArch rules:
+## Documentation
 
-- configuration and secrets go through `chatenv>=0.1.1`
-- CLI prompting and input resolution go through `chatstyle>=0.1.0`
-- sensitive values must stay masked in logs, reports, and test snapshots
+- CLI tree: https://arch.gh.wzhecnu.cn/Chatqiniu/cli-tree/
+- Capability map: https://arch.gh.wzhecnu.cn/Chatqiniu/capability-map/
+- Certificate deployment workflow: https://arch.gh.wzhecnu.cn/Chatqiniu/certificate-workflow/
 
-The default Qiniu typed env path is:
+## Development Checks
 
-```text
-~/.chatarch/envs/Qiniu/.env
+```bash
+python -m pytest -q
+mkdocs build --strict
+python -m build
+python -m twine check dist/*
 ```
-
-## Safety Notes
-
-- delete, certificate delete, domain HTTPS switching, and CDN refresh/prefetch are designed to prefer dry-run-style usage
-- high-impact writes should require explicit confirmation
-- day-to-day usage should favor read-only inspection and dry-run previews first
-
-## Layout
-
-- `src/`: package source code
-- `tests/code-tests/`: code tests
-- `tests/cli-tests/`: real CLI tests
-- `tests/mock-cli-tests/`: mock/fake CLI tests
-- `docs/`: long-lived docs built by mkdocs
-
-## Development Notes
-
-See `DEVELOP.md` and `AGENTS.md` before expanding the scaffold.

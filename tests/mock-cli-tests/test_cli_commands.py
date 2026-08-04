@@ -99,6 +99,57 @@ def test_domain_https_set_defaults_to_dry_run(monkeypatch):
     assert "cert-1" in result.output
 
 
+def test_cert_deploy_uploads_and_binds_domains(monkeypatch, tmp_path):
+    calls = {}
+    chain = tmp_path / "fullchain.pem"
+    key = tmp_path / "privkey.pem"
+    chain.write_text("CERT BODY", encoding="utf-8")
+    key.write_text("KEY BODY", encoding="utf-8")
+
+    class DeployFusionClient:
+        def cert_upload(self, **kwargs):
+            calls.setdefault("uploads", []).append(kwargs)
+            return {"certid": "new-cert-123"}
+
+        def domain_https_set(self, **kwargs):
+            calls.setdefault("binds", []).append(kwargs)
+            return {"code": 200, "domain": kwargs["domain"]}
+
+    monkeypatch.setattr(cli_module, "_fusion_client", lambda profile=None: DeployFusionClient())
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "cert",
+            "deploy",
+            "--name",
+            "demo-cert",
+            "--cert-chain",
+            str(chain),
+            "--private-key",
+            str(key),
+            "--domain",
+            "cdn.example.com",
+            "--domain",
+            "assets.example.com",
+            "--execute",
+            "--yes",
+            "--force-https",
+            "--no-http2",
+            "--format",
+            "json",
+            "-I",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert '"cert_id": "new-cert-123"' in result.output
+    assert calls["uploads"][0]["name"] == "demo-cert"
+    assert [call["domain"] for call in calls["binds"]] == ["cdn.example.com", "assets.example.com"]
+    assert calls["binds"][0]["force_https"] is True
+    assert calls["binds"][0]["http2"] is False
+
+
 def test_doctor_check_without_credentials(monkeypatch):
     monkeypatch.setattr(
         cli_module,

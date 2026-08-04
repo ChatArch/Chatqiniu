@@ -1,30 +1,64 @@
-# Chatqiniu Docs
+# Chatqiniu Documentation
 
-Long-lived documentation for `Chatqiniu` lives here.
+Chatqiniu is the ChatArch command-line tool for Qiniu Cloud. It brings Kodo, CDN, SSL certificates, and CDN domain HTTPS configuration into one scriptable, interactive, and safety-first command surface.
 
-## Current Capability Surface
+## Choose an Entry Point
 
-- `auth`: credential login, cleanup, and read-only identity checks
-- `profile` / `config`: ChatEnv profile management and default bucket / url-prefix / cdn-domain settings
-- `bucket` / `object` / `url`: object storage inspection, upload, delete dry-run, and URL generation
-- `cdn` / `cert` / `domain`: CDN refresh/prefetch, certificate list/upload, and domain HTTPS dry-run flows
-- `doctor` / `docs`: local diagnostics and official documentation index
+<div class="grid cards" markdown>
 
-## Common Examples
+-   **Configure credentials first**
+
+    ---
+
+    Store Qiniu credentials in ChatEnv profiles, select accounts with `--profile`, and keep secrets out of command output.
+
+    [`auth` / `profile` commands](cli-tree.md#authentication-and-profiles)
+
+-   **Inspect object storage**
+
+    ---
+
+    View buckets, list objects, upload/download files, and generate public or private object URLs.
+
+    [`bucket` / `object` / `url` commands](cli-tree.md#object-storage)
+
+-   **Operate CDN**
+
+    ---
+
+    Refresh, prefetch, query tasks, and inspect CDN domain state.
+
+    [`cdn` / `domain` commands](cli-tree.md#cdn-and-domains)
+
+-   **Deploy HTTPS certificates**
+
+    ---
+
+    Upload local PEM certificates and bind them to one or more CDN domains; real writes require explicit confirmation.
+
+    [Certificate deployment workflow](certificate-workflow.md)
+
+</div>
+
+## Safety Defaults
+
+| Capability | Default behavior | Real write requirement |
+| --- | --- | --- |
+| Delete one object | dry-run | `--execute` |
+| Batch delete objects | dry-run | `--execute` |
+| CDN refresh/prefetch | dry-run | `--execute` |
+| Upload certificate | dry-run | `--execute` |
+| Deploy certificate | dry-run | `--execute --yes` |
+| Switch domain HTTPS certificate | dry-run | `--execute` |
+
+## Common Commands
 
 ```bash
-chatqiniu auth whoami
-chatqiniu bucket list
-chatqiniu object list --prefix assets/
-chatqiniu cert list
-chatqiniu domain show cdn.example.com
+chatqiniu --version
+chatqiniu auth whoami --profile wzh
+chatqiniu bucket list --profile wzh
+chatqiniu cert list --profile wzh
+chatqiniu domain list --profile wzh
 ```
 
-## Local Preview
-
-```bash
-pip install -e ".[docs]"
-mkdocs serve
-```
-
-Chinese version: [index.md](index.md).
+See the [CLI tree](cli-tree.md) for command topology and the [capability map](capability-map.md) for package boundaries.
