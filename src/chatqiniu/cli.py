@@ -20,9 +20,11 @@ from chatstyle import (
     resolve_command_inputs,
 )
 
+from . import __version__
 from .client import DryRunResult, FusionClient, QiniuApiError, QiniuClient
 from .config import delete_profile, list_profiles, load_settings, masked_settings, save_settings, use_profile
 from .formatting import render_data
+from .operations import deploy_certificate
 
 DOC_LINKS = {
     "developer-center": "https://developer.qiniu.com/",
@@ -110,6 +112,7 @@ DOMAIN_HTTPS_SCHEMA = CommandSchema(
 
 
 @click.group()
+@click.version_option(__version__, prog_name="chatqiniu")
 def main() -> None:
     """chatqiniu command line interface."""
 
@@ -706,6 +709,59 @@ def cert_upload(name: str | None, cert_chain: str | None, private_key: str | Non
     key_text = Path(values["private_key"]).read_text(encoding="utf-8")
     result = _fusion_client(profile).cert_upload(name=values["name"], cert_chain=chain, private_key=key_text, dry_run=dry_run)
     _maybe_render_dry_run(result)
+
+
+@cert.command("deploy")
+@click.option("--name", required=False, help="Certificate name in Qiniu")
+@click.option("--cert-chain", required=False, help="PEM chain path")
+@click.option("--private-key", required=False, help="PEM private key path")
+@click.option("--domain", "domains", multiple=True, help="CDN domain to bind; repeat for multiple domains")
+@click.option("--profile", help="Named ChatEnv profile")
+@click.option("--force-https", is_flag=True, help="Enable force https on bound domains")
+@click.option("--http2/--no-http2", default=True, help="Toggle http2 on bound domains")
+@click.option("--dry-run/--execute", default=True, help="Preview by default")
+@click.option("--yes", is_flag=True, help="Required with --execute")
+@click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
+@add_interactive_option
+def cert_deploy(
+    name: str | None,
+    cert_chain: str | None,
+    private_key: str | None,
+    domains: tuple[str, ...],
+    profile: str | None,
+    force_https: bool,
+    http2: bool,
+    dry_run: bool,
+    yes: bool,
+    output_format: str,
+    interactive: bool | None,
+) -> None:
+    """Upload a certificate and bind it to one or more CDN domains."""
+
+    values = _resolve_inputs(
+        schema=CERT_UPLOAD_SCHEMA,
+        provided={"name": name, "cert_chain": cert_chain, "private_key": private_key},
+        interactive=interactive,
+        usage="Usage: chatqiniu cert deploy --name NAME --cert-chain CHAIN.pem --private-key KEY.pem --domain CDN [--execute --yes]",
+    )
+    selected_domains = [domain for domain in domains if domain]
+    if not selected_domains:
+        raise click.ClickException("At least one --domain is required.")
+    if not dry_run and not yes:
+        raise click.ClickException("Use --yes together with --execute for certificate deployment.")
+    chain = Path(values["cert_chain"]).read_text(encoding="utf-8")
+    key_text = Path(values["private_key"]).read_text(encoding="utf-8")
+    result = deploy_certificate(
+        None if dry_run else _fusion_client(profile),
+        name=values["name"],
+        cert_chain=chain,
+        private_key=key_text,
+        domains=selected_domains,
+        force_https=force_https,
+        http2=http2,
+        dry_run=dry_run,
+    )
+    render_data(result, output_format=output_format)
 
 
 @cert.command("list")

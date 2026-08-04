@@ -1,9 +1,57 @@
 site_name: Chatqiniu 文档
-site_url: https://ChatArch.github.io/Chatqiniu
+site_url: https://arch.gh.wzhecnu.cn/Chatqiniu/
 repo_url: https://github.com/ChatArch/Chatqiniu
+repo_name: ChatArch/Chatqiniu
+
 theme:
   name: material
   language: zh
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - content.code.copy
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: zh
+          default: true
+          name: 中文
+          build: true
+          site_name: Chatqiniu 文档
+        - locale: en
+          name: English
+          build: true
+          site_name: Chatqiniu Documentation
+          nav_translations:
+            首页: Home
+            命令树: CLI Tree
+            能力地图: Capability Map
+            证书部署: Certificate Deployment
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+
+extra:
+  alternate:
+    - name: 中文
+      link: /Chatqiniu/
+      lang: zh
+    - name: English
+      link: /Chatqiniu/en/
+      lang: en
+
 nav:
   - 首页: index.md
-  - English: index.en.md
+  - 命令树: cli-tree.md
+  - 能力地图: capability-map.md
+  - 证书部署: certificate-workflow.md

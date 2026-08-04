@@ -1,5 +1,19 @@
 # Changelog
 
+## 未发布
+
+### Added
+
+- 增加 `chatqiniu cert deploy`：上传本地 PEM 证书后绑定一个或多个 CDN 域名；默认 dry-run，真实执行需要 `--execute --yes`。
+- 增加 `chatqiniu.operations.deploy_certificate(...)` 可复用 Python API，供其他 ChatArch 包直接调用证书部署流程。
+- 增加 `chatqiniu --version`。
+- 增加标准 MkDocs 文档页：CLI 树、能力地图、证书部署流程，并启用中英文 i18n。
+
+### Changed
+
+- 将文档 URL 对齐到 ChatArch 标准公共域名路径 `https://arch.gh.wzhecnu.cn/Chatqiniu/`。
+- 为 ChatArch 内部依赖和 MkDocs 文档依赖增加上界。
+
 ## 0.2.0 - 2026-06-24
 
 ### Added
