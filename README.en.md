@@ -11,6 +11,7 @@ Chatqiniu is the ChatArch command-line tool for Qiniu Cloud workflows, covering 
 ```bash
 pip install -e ".[dev,docs]"
 chatqiniu --version
+chatqiniu --tree
 chatqiniu auth whoami --profile wzh
 chatqiniu bucket list --profile wzh
 python -m pytest -q

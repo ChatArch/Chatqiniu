@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.2 - 2026-08-11
+
+### Added
+
+- Add runtime `chatqiniu --tree` generated from the registered Click command surface for release/readback acceptance.
+
+### Changed
+
+- Remove the leftover template `hello` command from the public CLI surface.
+- Update the CLI tree documentation from the live runtime renderer instead of maintaining a hand-written tree.
+- Raise the ChatEnv dependency floor to `>=0.2.4,<0.3.0` and keep MkDocs Material in the strict-build-safe `<9.7` window.
+
 ## 0.2.1 - 2026-08-05
 
 ### Added
