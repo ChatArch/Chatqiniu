@@ -11,6 +11,7 @@ Chatqiniu 是 ChatArch 的七牛云命令行工具，覆盖 ChatEnv 鉴权、Kod
 ```bash
 pip install -e ".[dev,docs]"
 chatqiniu --version
+chatqiniu --tree
 chatqiniu auth whoami --profile wzh
 chatqiniu bucket list --profile wzh
 python -m pytest -q

@@ -45,11 +45,6 @@ CONFIG_KEY_MAP = {
     "up-host": "QINIU_UP_HOST",
 }
 
-HELLO_SCHEMA = CommandSchema(
-    name="hello",
-    fields=(CommandField("name", prompt="name", required=True),),
-)
-
 LOGIN_SCHEMA = CommandSchema(
     name="auth-login",
     fields=(
@@ -111,25 +106,106 @@ DOMAIN_HTTPS_SCHEMA = CommandSchema(
 )
 
 
-@click.group()
+def _format_metavar(name: str) -> str:
+    return name.replace("_", "-").upper()
+
+
+def _format_argument(param: click.Argument) -> str:
+    metavar = _format_metavar(param.name or "ARG")
+    if param.nargs == -1:
+        metavar = f"{metavar}..."
+    return metavar if param.required else f"[{metavar}]"
+
+
+def _format_option(param: click.Option) -> str:
+    primary = next((opt for opt in param.opts if opt.startswith("--")), param.opts[0])
+    if param.is_flag or param.flag_value is not None:
+        return primary
+    metavar = param.metavar or _format_metavar(param.name or "VALUE")
+    return f"{primary} {metavar}"
+
+
+def _signature(command: click.Command) -> str:
+    parts: list[str] = []
+    for param in command.params:
+        if isinstance(command, click.Group) and isinstance(param, click.Option):
+            continue
+        if isinstance(param, click.Argument):
+            parts.append(_format_argument(param))
+        elif isinstance(param, click.Option) and not param.hidden:
+            parts.append(f"[{_format_option(param)}]")
+    return " ".join(parts)
+
+
+def _summary(command: click.Command) -> str:
+    text = command.short_help or command.help or ""
+    return " ".join(text.strip().split()).rstrip(".")
+
+
+def _group_items(group: click.Group) -> list[tuple[str, str | click.Command]]:
+    items: list[tuple[str, str | click.Command]] = []
+    if group is main:
+        items.extend((name, name) for name in ("--help", "--version", "--tree"))
+    for param in group.params:
+        if isinstance(param, click.Option) and not param.hidden and param.name not in {"help", "version", "tree"}:
+            items.append((_format_option(param), _format_option(param)))
+    for name, command in group.commands.items():
+        if command.hidden:
+            continue
+        items.append((name, command))
+    return items
+
+
+def render_cli_tree(root: click.Group | None = None) -> str:
+    """Render the registered Click command tree for `chatqiniu --tree`."""
+    if root is None:
+        root = main
+    lines: list[str] = []
+
+    def label(name: str, node: str | click.Command) -> str:
+        if isinstance(node, click.Command):
+            sig = _signature(node)
+            title = f"{name} {sig}".strip()
+            comment = _summary(node)
+            return f"{title} # {comment}" if comment else title
+        comments = {
+            "--help": "Show this message and exit",
+            "--version": "Show the package version",
+            "--tree": "Show the registered CLI command tree",
+        }
+        return f"{name} # {comments.get(name, 'CLI option')}"
+
+    root_comment = _summary(root)
+    lines.append(f"{root.name or 'chatqiniu'} # {root_comment}" if root_comment else (root.name or "chatqiniu"))
+
+    def walk(group: click.Group, prefix: str = "") -> None:
+        items = _group_items(group)
+        for index, (name, node) in enumerate(items):
+            last = index == len(items) - 1
+            connector = "└── " if last else "├── "
+            lines.append(f"{prefix}{connector}{label(name, node)}")
+            if isinstance(node, click.Group):
+                child_prefix = prefix + ("    " if last else "│   ")
+                walk(node, child_prefix)
+
+    walk(root)
+    return "\n".join(lines)
+
+
+def _tree_callback(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
+    if not value or ctx.resilient_parsing:
+        return
+    if not isinstance(ctx.command, click.Group):
+        raise click.ClickException("--tree is only available on command groups")
+    click.echo(render_cli_tree(ctx.command))
+    ctx.exit()
+
+
+@click.group(name="chatqiniu")
 @click.version_option(__version__, prog_name="chatqiniu")
+@click.option("--tree", is_flag=True, is_eager=True, expose_value=False, callback=_tree_callback, help="Show the registered CLI command tree and exit.")
 def main() -> None:
     """chatqiniu command line interface."""
-
-
-@main.command()
-@click.argument("name", required=False)
-@add_interactive_option
-def hello(name: str | None, interactive: bool | None) -> None:
-    """Backward-compatible greeting command from the template."""
-
-    values = _resolve_inputs(
-        schema=HELLO_SCHEMA,
-        provided={"name": name},
-        interactive=interactive,
-        usage="Usage: chatqiniu hello [NAME]",
-    )
-    render_success(f"Hello, {values['name']}!")
 
 
 def _resolve_inputs(
