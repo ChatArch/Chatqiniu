@@ -17,6 +17,13 @@ class QiniuConfig(BaseEnvConfig):
     _aliases = ["qiniu", "kodo"]
     _storage_dir = "Qiniu"
 
+    @classmethod
+    def test(cls) -> None:
+        """Validate schema registration without contacting Qiniu."""
+
+        print(f"Testing {cls._title}...")
+        print("Schema loaded; use chatqiniu auth whoami to verify live credentials.")
+
     QINIU_ACCESS_KEY = EnvField("QINIU_ACCESS_KEY", desc="Qiniu AccessKey", is_sensitive=True)
     QINIU_SECRET_KEY = EnvField("QINIU_SECRET_KEY", desc="Qiniu SecretKey", is_sensitive=True)
     QINIU_BUCKET_NAME = EnvField("QINIU_BUCKET_NAME", desc="Default Kodo bucket")

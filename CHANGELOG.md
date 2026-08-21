@@ -6,6 +6,7 @@
 
 - Add registered `chatqiniu --tree-brief` output, tests, and installed console-script CI readbacks.
 - Add exact runtime-to-documentation checks for the full and brief CLI trees.
+- Add secret-free ChatEnv provider tests and installed discovery checks for the typed Qiniu profile.
 
 ### Changed
 

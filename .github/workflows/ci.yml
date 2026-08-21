@@ -30,6 +30,12 @@ jobs:
           chatqiniu --version
           chatqiniu --tree
           chatqiniu --tree-brief
+      - name: Verify installed ChatEnv provider
+        env:
+          CHATARCH_HOME: ${{ runner.temp }}/chatqiniu-chatenv-editable
+        run: |
+          chatenv --home "$CHATARCH_HOME" list
+          chatenv --home "$CHATARCH_HOME" test -t qiniu -I
       - run: python -m build
       - run: python -m twine check dist/*
       - name: Verify built wheel CLI contract
@@ -41,5 +47,7 @@ jobs:
             "$RUNNER_TEMP/chatqiniu-wheel/bin/chatqiniu" --version
             "$RUNNER_TEMP/chatqiniu-wheel/bin/chatqiniu" --tree
             "$RUNNER_TEMP/chatqiniu-wheel/bin/chatqiniu" --tree-brief
+            "$RUNNER_TEMP/chatqiniu-wheel/bin/chatenv" \
+              --home "$RUNNER_TEMP/chatqiniu-wheel-home" test -t qiniu -I
           )
       - run: mkdocs build --strict

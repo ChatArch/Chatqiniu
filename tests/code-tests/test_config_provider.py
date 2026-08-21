@@ -43,6 +43,16 @@ def test_chatenv_provider_uses_typed_storage_path(monkeypatch, tmp_path):
     assert store.active_path(QiniuConfig) == get_paths().envs_dir / "Qiniu" / ".env"
 
 
+def test_chatenv_provider_test_is_local_and_secret_free(capsys):
+    QiniuConfig.test()
+
+    output = capsys.readouterr().out
+    assert "Testing Qiniu Configuration" in output
+    assert "verify live credentials" in output
+    assert "QINIU_ACCESS_KEY" not in output
+    assert "QINIU_SECRET_KEY" not in output
+
+
 def test_save_and_load_active_settings(monkeypatch, tmp_path):
     monkeypatch.setenv("CHATARCH_HOME", str(tmp_path / ".chatarch"))
 

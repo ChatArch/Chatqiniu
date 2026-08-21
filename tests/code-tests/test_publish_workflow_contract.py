@@ -31,7 +31,9 @@ def test_ci_checks_installed_full_and_brief_trees_and_distributions():
     assert "chatqiniu --version" in text
     assert "chatqiniu --tree" in text
     assert "chatqiniu --tree-brief" in text
+    assert 'chatenv --home "$CHATARCH_HOME" test -t qiniu -I' in text
     assert "python -m build" in text
     assert "python -m twine check dist/*" in text
     assert '"$RUNNER_TEMP/chatqiniu-wheel/bin/python" -m pip install dist/*.whl' in text
+    assert '"$RUNNER_TEMP/chatqiniu-wheel/bin/chatenv"' in text
     assert "mkdocs build --strict" in text
