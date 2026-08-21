@@ -11,6 +11,7 @@ from chatstyle import (
     CommandField,
     CommandSchema,
     add_interactive_option,
+    add_tree_option,
     render_dry_run,
     render_error,
     render_info,
@@ -106,106 +107,11 @@ DOMAIN_HTTPS_SCHEMA = CommandSchema(
 )
 
 
-def _format_metavar(name: str) -> str:
-    return name.replace("_", "-").upper()
-
-
-def _format_argument(param: click.Argument) -> str:
-    metavar = _format_metavar(param.name or "ARG")
-    if param.nargs == -1:
-        metavar = f"{metavar}..."
-    return metavar if param.required else f"[{metavar}]"
-
-
-def _format_option(param: click.Option) -> str:
-    primary = next((opt for opt in param.opts if opt.startswith("--")), param.opts[0])
-    if param.is_flag or param.flag_value is not None:
-        return primary
-    metavar = param.metavar or _format_metavar(param.name or "VALUE")
-    return f"{primary} {metavar}"
-
-
-def _signature(command: click.Command) -> str:
-    parts: list[str] = []
-    for param in command.params:
-        if isinstance(command, click.Group) and isinstance(param, click.Option):
-            continue
-        if isinstance(param, click.Argument):
-            parts.append(_format_argument(param))
-        elif isinstance(param, click.Option) and not param.hidden:
-            parts.append(f"[{_format_option(param)}]")
-    return " ".join(parts)
-
-
-def _summary(command: click.Command) -> str:
-    text = command.short_help or command.help or ""
-    return " ".join(text.strip().split()).rstrip(".")
-
-
-def _group_items(group: click.Group) -> list[tuple[str, str | click.Command]]:
-    items: list[tuple[str, str | click.Command]] = []
-    if group is main:
-        items.extend((name, name) for name in ("--help", "--version", "--tree"))
-    for param in group.params:
-        if isinstance(param, click.Option) and not param.hidden and param.name not in {"help", "version", "tree"}:
-            items.append((_format_option(param), _format_option(param)))
-    for name, command in group.commands.items():
-        if command.hidden:
-            continue
-        items.append((name, command))
-    return items
-
-
-def render_cli_tree(root: click.Group | None = None) -> str:
-    """Render the registered Click command tree for `chatqiniu --tree`."""
-    if root is None:
-        root = main
-    lines: list[str] = []
-
-    def label(name: str, node: str | click.Command) -> str:
-        if isinstance(node, click.Command):
-            sig = _signature(node)
-            title = f"{name} {sig}".strip()
-            comment = _summary(node)
-            return f"{title} # {comment}" if comment else title
-        comments = {
-            "--help": "Show this message and exit",
-            "--version": "Show the package version",
-            "--tree": "Show the registered CLI command tree",
-        }
-        return f"{name} # {comments.get(name, 'CLI option')}"
-
-    root_comment = _summary(root)
-    lines.append(f"{root.name or 'chatqiniu'} # {root_comment}" if root_comment else (root.name or "chatqiniu"))
-
-    def walk(group: click.Group, prefix: str = "") -> None:
-        items = _group_items(group)
-        for index, (name, node) in enumerate(items):
-            last = index == len(items) - 1
-            connector = "└── " if last else "├── "
-            lines.append(f"{prefix}{connector}{label(name, node)}")
-            if isinstance(node, click.Group):
-                child_prefix = prefix + ("    " if last else "│   ")
-                walk(node, child_prefix)
-
-    walk(root)
-    return "\n".join(lines)
-
-
-def _tree_callback(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
-    if not value or ctx.resilient_parsing:
-        return
-    if not isinstance(ctx.command, click.Group):
-        raise click.ClickException("--tree is only available on command groups")
-    click.echo(render_cli_tree(ctx.command))
-    ctx.exit()
-
-
 @click.group(name="chatqiniu")
 @click.version_option(__version__, prog_name="chatqiniu")
-@click.option("--tree", is_flag=True, is_eager=True, expose_value=False, callback=_tree_callback, help="Show the registered CLI command tree and exit.")
+@add_tree_option(renderer_options={"root_name": "chatqiniu"})
 def main() -> None:
-    """chatqiniu command line interface."""
+    """Manage Qiniu Kodo, CDN, and certificate workflows."""
 
 
 def _resolve_inputs(
@@ -260,7 +166,7 @@ def _collect_keys_from_list_result(data: dict[str, Any]) -> list[str]:
 
 @main.group()
 def auth() -> None:
-    """Credential bootstrap and identity checks."""
+    """Manage credentials and run masked read-only identity checks."""
 
 
 @auth.command("login")
@@ -269,7 +175,7 @@ def auth() -> None:
 @click.option("--profile", help="Named ChatEnv profile to save")
 @add_interactive_option
 def auth_login(access_key: str | None, secret_key: str | None, profile: str | None, interactive: bool | None) -> None:
-    """Save credentials into ChatEnv-managed Qiniu config."""
+    """Write credentials to a ChatEnv profile without printing secret values."""
 
     values = _resolve_inputs(
         schema=LOGIN_SCHEMA,
@@ -289,7 +195,7 @@ def auth_login(access_key: str | None, secret_key: str | None, profile: str | No
 @click.option("--profile", help="Named ChatEnv profile to clear instead of active")
 @click.option("--yes", is_flag=True, help="Skip confirmation")
 def auth_logout(profile: str | None, yes: bool) -> None:
-    """Clear active credentials or remove a named profile."""
+    """Clear stored credentials after explicit confirmation."""
 
     if not yes:
         raise click.ClickException("Refusing to clear credentials without --yes.")
@@ -301,7 +207,7 @@ def auth_logout(profile: str | None, yes: bool) -> None:
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def auth_whoami(profile: str | None, output_format: str) -> None:
-    """Validate current credentials with a read-only bucket listing."""
+    """Validate credentials with a read-only request and print a masked summary."""
 
     settings = _get_settings(profile)
     client = _client(profile)
@@ -318,12 +224,12 @@ def auth_whoami(profile: str | None, output_format: str) -> None:
 
 @main.group()
 def profile() -> None:
-    """Manage named ChatEnv profiles."""
+    """Read and write named ChatEnv profiles."""
 
 
 @profile.command("list")
 def profile_list() -> None:
-    """List named Qiniu profiles."""
+    """List profile names without reading credential values."""
 
     rows = [{"profile": name} for name in list_profiles()]
     render_data(rows or [{"profile": "<none>"}], columns=["profile"])
@@ -332,7 +238,7 @@ def profile_list() -> None:
 @profile.command("show")
 @click.argument("name", required=False)
 def profile_show(name: str | None) -> None:
-    """Show the active or named profile."""
+    """Print masked settings for the active or named profile."""
 
     render_key_values(masked_settings(_get_settings(name)))
 
@@ -340,7 +246,7 @@ def profile_show(name: str | None) -> None:
 @profile.command("use")
 @click.argument("name")
 def profile_use(name: str) -> None:
-    """Activate a named profile."""
+    """Copy a named profile into active ChatEnv storage."""
 
     source = use_profile(name)
     render_success(f"Activated Qiniu profile from {source}")
@@ -350,7 +256,7 @@ def profile_use(name: str) -> None:
 @click.argument("name")
 @click.option("--copy-active/--empty", default=True, help="Copy current active values by default")
 def profile_create(name: str, copy_active: bool) -> None:
-    """Create a named profile."""
+    """Create a named profile, optionally copying active settings."""
 
     values = {}
     if copy_active:
@@ -372,7 +278,7 @@ def profile_create(name: str, copy_active: bool) -> None:
 @click.argument("name")
 @click.option("--yes", is_flag=True, help="Skip confirmation")
 def profile_delete(name: str, yes: bool) -> None:
-    """Delete a named profile."""
+    """Delete a named profile after explicit confirmation."""
 
     if not yes:
         raise click.ClickException("Refusing to delete a profile without --yes.")
@@ -382,13 +288,13 @@ def profile_delete(name: str, yes: bool) -> None:
 
 @main.group()
 def config() -> None:
-    """Manage default Qiniu settings in ChatEnv."""
+    """Read and write non-secret Qiniu defaults in ChatEnv."""
 
 
 @config.command("list")
 @click.option("--profile", help="Named ChatEnv profile")
 def config_list(profile: str | None) -> None:
-    """List non-sensitive config values."""
+    """Print masked settings for the active or named profile."""
 
     render_key_values(masked_settings(_get_settings(profile)))
 
@@ -397,7 +303,7 @@ def config_list(profile: str | None) -> None:
 @click.argument("key")
 @click.option("--profile", help="Named ChatEnv profile")
 def config_get(key: str, profile: str | None) -> None:
-    """Get one config value."""
+    """Print one supported non-secret config value."""
 
     env_key = _config_env_key(key)
     render_key_values({env_key: masked_settings(_get_settings(profile)).get(env_key, "<unset>")})
@@ -408,7 +314,7 @@ def config_get(key: str, profile: str | None) -> None:
 @click.argument("value")
 @click.option("--profile", help="Named ChatEnv profile")
 def config_set(key: str, value: str, profile: str | None) -> None:
-    """Set one config value."""
+    """Write one supported non-secret config value."""
 
     env_key = _config_env_key(key)
     path = save_settings({env_key: value}, profile=profile or None)
@@ -419,7 +325,7 @@ def config_set(key: str, value: str, profile: str | None) -> None:
 @click.argument("key")
 @click.option("--profile", help="Named ChatEnv profile")
 def config_unset(key: str, profile: str | None) -> None:
-    """Unset one config value."""
+    """Clear one supported non-secret config value."""
 
     env_key = _config_env_key(key)
     path = save_settings({env_key: ""}, profile=profile or None)
@@ -428,14 +334,14 @@ def config_unset(key: str, profile: str | None) -> None:
 
 @main.group()
 def bucket() -> None:
-    """Inspect Kodo buckets."""
+    """Inspect Qiniu Kodo buckets with read-only requests."""
 
 
 @bucket.command("list")
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def bucket_list(profile: str | None, output_format: str) -> None:
-    """List accessible buckets."""
+    """List accessible buckets with a read-only request."""
 
     buckets = _client(profile).bucket_list()
     render_data([{"bucket": item} for item in buckets], output_format=output_format, columns=["bucket"])
@@ -446,7 +352,7 @@ def bucket_list(profile: str | None, output_format: str) -> None:
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def bucket_show(name: str | None, profile: str | None, output_format: str) -> None:
-    """Show simple bucket information."""
+    """Check one bucket against the read-only accessible-bucket list."""
 
     settings = _get_settings(profile)
     selected = name or settings.bucket_name
@@ -464,7 +370,7 @@ def bucket_show(name: str | None, profile: str | None, output_format: str) -> No
 
 @main.group()
 def object() -> None:
-    """Manage Kodo objects."""
+    """Read and mutate Kodo objects; destructive commands preview by default."""
 
 
 @object.command("upload")
@@ -477,7 +383,7 @@ def object() -> None:
 @click.option("--dry-run", is_flag=True, help="Preview upload request")
 @add_interactive_option
 def object_upload(local_file: str | None, key: str | None, bucket: str | None, profile: str | None, overwrite: bool, skip_existing: bool, dry_run: bool, interactive: bool | None) -> None:
-    """Upload one local file."""
+    """Upload one local file to Kodo; writes remote storage unless --dry-run."""
 
     values = _resolve_inputs(
         schema=UPLOAD_SCHEMA,
@@ -508,7 +414,7 @@ def object_upload(local_file: str | None, key: str | None, bucket: str | None, p
 @click.option("--dry-run", is_flag=True, help="Preview upload requests")
 @add_interactive_option
 def object_upload_dir(local_dir: str | None, prefix: str, bucket: str | None, profile: str | None, overwrite: bool, skip_existing: bool, dry_run: bool, interactive: bool | None) -> None:
-    """Upload a directory recursively."""
+    """Upload a directory to Kodo; writes remote storage unless --dry-run."""
 
     values = _resolve_inputs(
         schema=UPLOAD_DIR_SCHEMA,
@@ -547,7 +453,7 @@ def object_upload_dir(local_dir: str | None, prefix: str, bucket: str | None, pr
 @click.option("--private", "private_link", is_flag=True, help="Use signed private URL")
 @click.option("--expires", default=3600, type=int, show_default=True, help="Private URL ttl")
 def object_download(key: str, output_path: str, profile: str | None, bucket: str | None, private_link: bool, expires: int) -> None:
-    """Download an object via generated URL."""
+    """Download one object and write it to --out."""
 
     settings = _get_settings(profile)
     client = _client(profile)
@@ -571,7 +477,7 @@ def object_download(key: str, output_path: str, profile: str | None, bucket: str
 @click.option("--delimiter", default=None)
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def object_list(prefix: str | None, bucket: str | None, profile: str | None, limit: int, marker: str | None, delimiter: str | None, output_format: str) -> None:
-    """List objects in one bucket."""
+    """List objects in one bucket with a read-only request."""
 
     settings = _get_settings(profile)
     selected_bucket = settings.require_bucket(bucket)
@@ -585,7 +491,7 @@ def object_list(prefix: str | None, bucket: str | None, profile: str | None, lim
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def object_stat(key: str, bucket: str | None, profile: str | None, output_format: str) -> None:
-    """Show object metadata."""
+    """Print object metadata from a read-only request."""
 
     settings = _get_settings(profile)
     selected_bucket = settings.require_bucket(bucket)
@@ -600,7 +506,7 @@ def object_stat(key: str, bucket: str | None, profile: str | None, output_format
 @click.option("--yes", is_flag=True, help="Required with --execute")
 @add_interactive_option
 def object_delete(key: str | None, bucket: str | None, profile: str | None, dry_run: bool, yes: bool, interactive: bool | None) -> None:
-    """Delete one object, dry-run by default."""
+    """Preview object deletion; --execute --yes mutates remote storage."""
 
     values = _resolve_inputs(
         schema=DELETE_SCHEMA,
@@ -624,7 +530,7 @@ def object_delete(key: str | None, bucket: str | None, profile: str | None, dry_
 @click.option("--dry-run/--execute", default=True, help="Preview by default")
 @add_interactive_option
 def object_copy(src_key: str | None, dst_key: str | None, bucket: str | None, profile: str | None, dry_run: bool, interactive: bool | None) -> None:
-    """Copy one object, dry-run by default."""
+    """Preview an object copy; --execute mutates remote storage."""
 
     values = _resolve_inputs(
         schema=COPY_SCHEMA,
@@ -646,7 +552,7 @@ def object_copy(src_key: str | None, dst_key: str | None, bucket: str | None, pr
 @click.option("--dry-run/--execute", default=True, help="Preview by default")
 @add_interactive_option
 def object_move(src_key: str | None, dst_key: str | None, bucket: str | None, profile: str | None, dry_run: bool, interactive: bool | None) -> None:
-    """Move one object, dry-run by default."""
+    """Preview an object move; --execute mutates remote storage."""
 
     values = _resolve_inputs(
         schema=COPY_SCHEMA,
@@ -667,7 +573,7 @@ def object_move(src_key: str | None, dst_key: str | None, bucket: str | None, pr
 @click.option("--dry-run/--execute", default=True, help="Preview by default")
 @click.option("--yes", is_flag=True, help="Required with --execute")
 def object_batch_delete(prefix: str, bucket: str | None, profile: str | None, dry_run: bool, yes: bool) -> None:
-    """Batch delete keys by prefix, dry-run by default."""
+    """Preview prefix deletion; --execute --yes mutates remote storage."""
 
     if not dry_run and not yes:
         raise click.ClickException("Use --yes together with --execute for destructive operations.")
@@ -681,7 +587,7 @@ def object_batch_delete(prefix: str, bucket: str | None, profile: str | None, dr
 
 @main.group()
 def url() -> None:
-    """Generate object URLs."""
+    """Generate object URLs without mutating remote storage."""
 
 
 @url.command("public")
@@ -691,7 +597,7 @@ def url() -> None:
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 @add_interactive_option
 def url_public(key: str | None, profile: str | None, url_prefix: str | None, output_format: str, interactive: bool | None) -> None:
-    """Generate a public object URL."""
+    """Print a public object URL."""
 
     values = _resolve_inputs(schema=URL_SCHEMA, provided={"key": key}, interactive=interactive, usage="Usage: chatqiniu url public KEY")
     settings = _get_settings(profile)
@@ -708,7 +614,7 @@ def url_public(key: str | None, profile: str | None, url_prefix: str | None, out
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 @add_interactive_option
 def url_private(key: str | None, profile: str | None, url_prefix: str | None, expires: int, output_format: str, interactive: bool | None) -> None:
-    """Generate a private signed object URL."""
+    """Print a signed object URL; treat the output as sensitive."""
 
     values = _resolve_inputs(schema=URL_SCHEMA, provided={"key": key}, interactive=interactive, usage="Usage: chatqiniu url private KEY")
     settings = _get_settings(profile)
@@ -719,7 +625,7 @@ def url_private(key: str | None, profile: str | None, url_prefix: str | None, ex
 
 @main.group()
 def cdn() -> None:
-    """CDN refresh and prefetch."""
+    """Refresh, prefetch, and inspect CDN tasks; writes preview by default."""
 
 
 @cdn.command("refresh")
@@ -728,7 +634,7 @@ def cdn() -> None:
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--dry-run/--execute", default=True, help="Preview by default")
 def cdn_refresh(urls: tuple[str, ...], dirs: tuple[str, ...], profile: str | None, dry_run: bool) -> None:
-    """Refresh CDN cache entries."""
+    """Preview CDN refresh requests; --execute submits remote writes."""
 
     if not urls and not dirs:
         raise click.ClickException("At least one --url or --dir is required.")
@@ -741,7 +647,7 @@ def cdn_refresh(urls: tuple[str, ...], dirs: tuple[str, ...], profile: str | Non
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--dry-run/--execute", default=True, help="Preview by default")
 def cdn_prefetch(urls: tuple[str, ...], profile: str | None, dry_run: bool) -> None:
-    """Prefetch CDN resources."""
+    """Preview CDN prefetch requests; --execute submits remote writes."""
 
     if not urls:
         raise click.ClickException("At least one --url is required.")
@@ -755,14 +661,14 @@ def cdn_prefetch(urls: tuple[str, ...], profile: str | None, dry_run: bool) -> N
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def cdn_task(task_id: str, kind: str, profile: str | None, output_format: str) -> None:
-    """Query CDN task status."""
+    """Print CDN task status from a read-only request."""
 
     render_data(_fusion_client(profile).cdn_task(task_id=task_id, kind=kind), output_format=output_format)
 
 
 @main.group()
 def cert() -> None:
-    """Inspect and manage CDN certificates."""
+    """Read and mutate CDN certificates; writes preview by default."""
 
 
 @cert.command("upload")
@@ -773,7 +679,7 @@ def cert() -> None:
 @click.option("--dry-run/--execute", default=True, help="Preview by default")
 @add_interactive_option
 def cert_upload(name: str | None, cert_chain: str | None, private_key: str | None, profile: str | None, dry_run: bool, interactive: bool | None) -> None:
-    """Upload a certificate, dry-run by default."""
+    """Preview certificate upload; --execute sends local PEM data."""
 
     values = _resolve_inputs(
         schema=CERT_UPLOAD_SCHEMA,
@@ -812,7 +718,7 @@ def cert_deploy(
     output_format: str,
     interactive: bool | None,
 ) -> None:
-    """Upload a certificate and bind it to one or more CDN domains."""
+    """Preview certificate deployment; --execute --yes writes remotely."""
 
     values = _resolve_inputs(
         schema=CERT_UPLOAD_SCHEMA,
@@ -846,7 +752,7 @@ def cert_deploy(
 @click.option("--limit", default=100, type=int, show_default=True)
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def cert_list(profile: str | None, marker: str | None, limit: int, output_format: str) -> None:
-    """List CDN certificates."""
+    """List certificate metadata with a read-only request."""
 
     data = _fusion_client(profile).cert_list(marker=marker, limit=limit)
     rows = data.get("certs") or data.get("items") or []
@@ -858,7 +764,7 @@ def cert_list(profile: str | None, marker: str | None, limit: int, output_format
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def cert_show(cert_id: str, profile: str | None, output_format: str) -> None:
-    """Show one certificate."""
+    """Print certificate metadata from a read-only request."""
 
     render_data(_fusion_client(profile).cert_show(cert_id), output_format=output_format)
 
@@ -869,7 +775,7 @@ def cert_show(cert_id: str, profile: str | None, output_format: str) -> None:
 @click.option("--dry-run/--execute", default=True, help="Preview by default")
 @click.option("--yes", is_flag=True, help="Required with --execute")
 def cert_delete(cert_id: str, profile: str | None, dry_run: bool, yes: bool) -> None:
-    """Delete one certificate, dry-run by default."""
+    """Preview certificate deletion; --execute --yes writes remotely."""
 
     if not dry_run and not yes:
         raise click.ClickException("Use --yes together with --execute for destructive operations.")
@@ -879,7 +785,7 @@ def cert_delete(cert_id: str, profile: str | None, dry_run: bool, yes: bool) -> 
 
 @main.group()
 def domain() -> None:
-    """Inspect CDN domains and HTTPS config."""
+    """Inspect domains and manage HTTPS; writes preview by default."""
 
 
 @domain.command("list")
@@ -888,7 +794,7 @@ def domain() -> None:
 @click.option("--limit", default=100, type=int, show_default=True)
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def domain_list(profile: str | None, marker: str | None, limit: int, output_format: str) -> None:
-    """List CDN domains."""
+    """List CDN domains with a read-only request."""
 
     data = _fusion_client(profile).domain_list(marker=marker, limit=limit)
     rows = data.get("domains") or data.get("items") or []
@@ -900,14 +806,14 @@ def domain_list(profile: str | None, marker: str | None, limit: int, output_form
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def domain_show(name: str, profile: str | None, output_format: str) -> None:
-    """Show one CDN domain."""
+    """Print one CDN domain from a read-only request."""
 
     render_data(_fusion_client(profile).domain_show(name), output_format=output_format)
 
 
 @domain.group("https")
 def domain_https() -> None:
-    """Manage domain HTTPS configuration."""
+    """Manage domain HTTPS bindings; writes preview by default."""
 
 
 @domain_https.command("set")
@@ -920,7 +826,7 @@ def domain_https() -> None:
 @click.option("--yes", is_flag=True, help="Required with --execute")
 @add_interactive_option
 def domain_https_set(domain: str | None, cert_id: str | None, profile: str | None, force_https: bool, http2: bool, dry_run: bool, yes: bool, interactive: bool | None) -> None:
-    """Set the HTTPS certificate for one domain, dry-run by default."""
+    """Preview an HTTPS binding; --execute --yes writes remotely."""
 
     values = _resolve_inputs(
         schema=DOMAIN_HTTPS_SCHEMA,
@@ -942,14 +848,14 @@ def domain_https_set(domain: str | None, cert_id: str | None, profile: str | Non
 
 @main.group()
 def doctor() -> None:
-    """Run local diagnostics."""
+    """Run local and read-only remote diagnostics."""
 
 
 @doctor.command("check")
 @click.option("--profile", help="Named ChatEnv profile")
 @click.option("--format", "output_format", type=click.Choice(["table", "json", "markdown"]), default="table")
 def doctor_check(profile: str | None, output_format: str) -> None:
-    """Check local config and read-only API health."""
+    """Print masked config health and optional read-only API status."""
 
     settings = _get_settings(profile)
     payload: dict[str, Any] = {
@@ -972,19 +878,19 @@ def doctor_check(profile: str | None, output_format: str) -> None:
 
 @main.group()
 def docs() -> None:
-    """Show doc links and examples."""
+    """Print bundled documentation links and examples."""
 
 
 @docs.command("links")
 def docs_links() -> None:
-    """Print curated official documentation links."""
+    """Print curated official links without network requests."""
 
     render_key_values(DOC_LINKS)
 
 
 @docs.command("examples")
 def docs_examples() -> None:
-    """Print common examples."""
+    """Print common command examples without running them."""
 
     render_info("chatqiniu auth whoami")
     render_info("chatqiniu bucket list")
@@ -996,7 +902,7 @@ def docs_examples() -> None:
 @docs.command("open")
 @click.argument("topic")
 def docs_open(topic: str) -> None:
-    """Print one official document link by topic."""
+    """Print one official document URL without opening a browser."""
 
     url = DOC_LINKS.get(topic)
     if not url:

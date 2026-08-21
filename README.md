@@ -12,6 +12,7 @@ Chatqiniu 是 ChatArch 的七牛云命令行工具，覆盖 ChatEnv 鉴权、Kod
 pip install -e ".[dev,docs]"
 chatqiniu --version
 chatqiniu --tree
+chatqiniu --tree-brief
 chatqiniu auth whoami --profile wzh
 chatqiniu bucket list --profile wzh
 python -m pytest -q
@@ -47,6 +48,8 @@ chatqiniu cert deploy \
 
 ## 文档入口
 
+`chatqiniu --tree` 由 ChatStyle 从真实 Click 注册表渲染并保留参数签名；`chatqiniu --tree-brief` 保留相同节点和用途说明，但省略参数签名。
+
 - 命令树：https://arch.gh.wzhecnu.cn/Chatqiniu/cli-tree/
 - 能力地图：https://arch.gh.wzhecnu.cn/Chatqiniu/capability-map/
 - 证书部署流程：https://arch.gh.wzhecnu.cn/Chatqiniu/certificate-workflow/
@@ -58,4 +61,8 @@ python -m pytest -q
 mkdocs build --strict
 python -m build
 python -m twine check dist/*
+chatqiniu --version
+chatqiniu --tree
+chatqiniu --tree-brief
+git diff --check
 ```

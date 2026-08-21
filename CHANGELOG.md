@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.3 - 2026-08-22
+
+### Added
+
+- Add registered `chatqiniu --tree-brief` output, tests, and installed console-script CI readbacks.
+- Add exact runtime-to-documentation checks for the full and brief CLI trees.
+- Add secret-free ChatEnv provider tests and installed discovery checks for the typed Qiniu profile.
+
+### Changed
+
+- Replace the package-local Click tree renderer with ChatStyle `add_tree_option()` on the explicit `chatqiniu` root.
+- Raise the shared runtime bounds to `chatstyle>=0.2.0,<0.3.0` and `chatenv>=0.2.10,<0.3.0`.
+- Clarify command-tree descriptions for read-only output, local/remote writes, dry-run behavior, and secret boundaries.
+- Guard tag publishing so the release commit must be contained in the default branch.
+
 ## 0.2.2 - 2026-08-11
 
 ### Added

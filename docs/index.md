@@ -55,6 +55,8 @@ Chatqiniu 是 ChatArch 的七牛云命令行工具。它把七牛云 Kodo、CDN�
 
 ```bash
 chatqiniu --version
+chatqiniu --tree
+chatqiniu --tree-brief
 chatqiniu auth whoami --profile wzh
 chatqiniu bucket list --profile wzh
 chatqiniu cert list --profile wzh

@@ -12,6 +12,7 @@ Chatqiniu is the ChatArch command-line tool for Qiniu Cloud workflows, covering 
 pip install -e ".[dev,docs]"
 chatqiniu --version
 chatqiniu --tree
+chatqiniu --tree-brief
 chatqiniu auth whoami --profile wzh
 chatqiniu bucket list --profile wzh
 python -m pytest -q
@@ -47,6 +48,8 @@ Safety contract: command output does not print certificate bodies, private keys,
 
 ## Documentation
 
+ChatStyle renders `chatqiniu --tree` from the real Click registry with parameter signatures. `chatqiniu --tree-brief` keeps the same nodes and purpose descriptions while omitting signatures.
+
 - CLI tree: https://arch.gh.wzhecnu.cn/Chatqiniu/cli-tree/
 - Capability map: https://arch.gh.wzhecnu.cn/Chatqiniu/capability-map/
 - Certificate deployment workflow: https://arch.gh.wzhecnu.cn/Chatqiniu/certificate-workflow/
@@ -58,4 +61,8 @@ python -m pytest -q
 mkdocs build --strict
 python -m build
 python -m twine check dist/*
+chatqiniu --version
+chatqiniu --tree
+chatqiniu --tree-brief
+git diff --check
 ```
