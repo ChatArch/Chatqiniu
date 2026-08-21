@@ -55,6 +55,8 @@ Chatqiniu is the ChatArch command-line tool for Qiniu Cloud. It brings Kodo, CDN
 
 ```bash
 chatqiniu --version
+chatqiniu --tree
+chatqiniu --tree-brief
 chatqiniu auth whoami --profile wzh
 chatqiniu bucket list --profile wzh
 chatqiniu cert list --profile wzh
